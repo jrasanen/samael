@@ -24,6 +24,10 @@ fn reduce_xml_to_signed<T>(xml_str: &str, _keys: &Vec<T>) -> Result<String, Erro
     Ok(String::from(xml_str))
 }
 
+fn clean_newlines(string: String) -> String {
+    return string.replace('\n', "");
+}
+
 #[derive(Debug, Snafu)]
 pub enum Error {
     #[snafu(display(
@@ -97,6 +101,10 @@ pub enum Error {
     DeserializeResponseError,
     #[snafu(display("Failed to parse cert '{}'. Assumed DER format.", cert))]
     FailedToParseCert {
+        cert: String,
+    },
+    #[snafu(display("Failed to decode cert '{}'. Assumed base64 format.", cert))]
+    FailedToDecodeCert {
         cert: String,
     },
     #[snafu(display("Unexpected Error Occurred!"))]
@@ -301,7 +309,8 @@ impl ServiceProvider {
                             .as_ref()
                             .and_then(|data| data.certificate.as_ref())
                         {
-                            if let Ok(decoded) = base64::decode(cert.as_bytes()) {
+                            if let Ok(decoded) = base64::decode(clean_newlines(cert.to_string()).as_bytes())
+                            {
                                 if let Ok(parsed) = openssl::x509::X509::from_der(&decoded) {
                                     result.push(parsed)
                                 } else {
@@ -310,7 +319,7 @@ impl ServiceProvider {
                                     });
                                 }
                             } else {
-                                return Err(Error::FailedToParseCert {
+                                return Err(Error::FailedToDecodeCert {
                                     cert: cert.to_string(),
                                 });
                             }
@@ -331,7 +340,8 @@ impl ServiceProvider {
                                 .as_ref()
                                 .and_then(|data| data.certificate.as_ref())
                             {
-                                if let Ok(decoded) = base64::decode(cert.as_bytes()) {
+                                if let Ok(decoded) = base64::decode(clean_newlines(cert.to_string()).as_bytes())
+                                {
                                     if let Ok(parsed) = openssl::x509::X509::from_der(&decoded) {
                                         result.push(parsed)
                                     } else {
@@ -340,7 +350,7 @@ impl ServiceProvider {
                                         });
                                     }
                                 } else {
-                                    return Err(Error::FailedToParseCert {
+                                    return Err(Error::FailedToDecodeCert {
                                         cert: cert.to_string(),
                                     });
                                 }
